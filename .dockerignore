@@ -1,0 +1,19 @@
+# Maven
+target/
+
+# IDE
+.classpath
+.project
+/bin/
+
+# VSCode
+.vscode
+.settings/
+
+# doc
+diagrama*
+*.jpg
+*.md
+!README.md
+single_Dockerfile.txt
+
