@@ -1,0 +1,161 @@
+
+
+Docker handbook de freecodecamp!!!
+
+https://www.freecodecamp.org/news/the-docker-handbook/
+
+----------------
+
+un howto para Spring:
+
+https://stackify.com/guide-docker-java/
+
+-------------
+
+images java:
+
+https://github.com/docker-library/docs/tree/master/openjdk
+
+https://hub.docker.com/_/openjdk
+
+---------------------
+
+
+escribo el dockerfile:
+
+
+# Alpine Linux with OpenJDK JRE
+FROM openjdk:11.0-jre-slim-buster
+
+LABEL "edu.elsmancs.gildedrose"="Kata Gilded Rose"
+LABEL version="1.0"
+LABEL description="Kata Gilded Rose en Java"
+LABEL maintainer="davig@cifpfbmoll.eu"
+
+WORKDIR $HOME/app
+
+COPY ./target/gildedrose-1.0-SNAPSHOT.jar ./app/gildedrose.jar
+
+CMD ["java", "-jar", "./app/gildedrose.jar"]
+
+--------------------
+
+creo la imagen:
+
+$ docker build -t gildedrose .
+
+$ docker images 
+
+REPOSITORY                                                       TAG                    IMAGE ID       CREATED         SIZE
+gildedrose                                                       latest                 97ba7872c8f5   4 minutes ago   220MB
+openjdk                                                          11.0-jre-slim-buster   4f4564121f23   3 days ago      220MB
+
+------------------
+
+creo un y ejecuto  un contenedor a partir de la imagen:
+
+$ docker run -it --name katagildedrose gildedrose:latest
+
+Bienvenido a Ollivanders!
+         ####  DAY 1 ####
+name=+5 Dexterity Vest, sell_in=10, quality=20
+name=Aged Brie, sell_in=2, quality=0
+name=Elixir of the Mongoose, sell_in=5, quality=7
+name=Sulfuras, Hand of Ragnaros, sell_in=0, quality=80
+name=Sulfuras, Hand of Ragnaros, sell_in=-1, quality=80
+name=Backstage passes to a TAFKAL80ETC concert, sell_in=15, quality=20
+...
+
+$ docker ps -a
+
+CONTAINER ID   IMAGE                                                COMMAND                  CREATED          STATUS                      PORTS     NAMES
+88aa8adfa8ec   gildedrose:latest                                    "java -jar ./app/gil…"   10 minutes ago   Exited (0) 10 minutes ago             katagildedrose
+
+--------------------
+
+no necesito de momento el -dockerignore porque no estoy copiando código fuente, sólo el .jar
+
+
+------------
+
+
+AS stages
+
+Mejor usar la imagen maven oficial porque por instalarlo por mi cuenta da problemas: 
+
+https://hub.docker.com/_/maven
+
+
+leer el dockerfile
+
+se generan la imagen maven, la openjdk, y una <none> que me cargo luego, más la final con jre+la app
+
+Esta manera me permite construir la app con maven en una imagen maven (a la que he copiado el código fuente) y copiar sólo el jar a otra imagen, de modo que si publico la imagen no se puede acceder al fuente. Además, la imagen con maven pesa 400MB mientras que la jre sólo 200MB
+
+--------------
+
+Arrancar mi docker sobreescribiendo el entrypoint y así poder ejecutarlo en modo interactivo
+
+$ docker run --rm -it --entrypoint=/bin/bash mavenrose:latest 
+
+root@0d8424b096f8:/app# ls
+gildedrose.jar
+
+root@0d8424b096f8:/app# java -jar gildedrose.jar
+
+root@0d8424b096f8:/app# exit
+
+
+ejecutar el contenedor tal cual
+
+~$ docker start -i gildedrose 
+
+$ docker container run -it --rm mavenrose:latest 
+
+---------
+
+Ver el historial de capas de la imagen:
+
+$ docker image history mavenrose:latest
+
+
+The upper most layer is the latest one and as you go down the layers get older. The upper most layer is the one that you usually use for running containers. 
+
+
+---------
+
+para ver el metadata de la imagen que hemos creado con LABEL (key=value): 
+
+$ docker image inspect mavenrose:latest 
+
+
+---------
+
+Publicar la imagen en dockerhub
+
+~$ docker tag mavenrose:latest dfleta/gildedrose
+
+~$ docker login -u dfleta
+
+
+
+-----------
+
+Comandos útiles
+
+$ docker container rm id_contenedor
+
+$ docker images
+
+$ docker image rm id_iamgen
+
+$ docker start contenedor
+$ docker stop contenedor
+
+$ docker ps -a
+
+todos los dockers existentes
+
+ps sólo los activos
+
+ 

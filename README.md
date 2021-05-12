@@ -77,3 +77,202 @@ Utiliza este diagrama de clases UML para guiarte en la implementación de las cl
 Básicamente, es el mismo diseño que entre todas las personas de clase hemos discurrido de manera colaborativa:
 
 ![Proto UML](./diseño%20colaborativo%20protoUML.jpg)
+
+
+JAVA en un docker
+=================
+
+### Alpine Linux with OpenJDK JRE
+Crear la imagen con el JDK y el JRE para crear los `jar` de la app:
+
+`Dockerfile`
+
+```Dockerfile
+FROM openjdk:11.0-jre-slim-buster
+
+LABEL "edu.elsmancs.gildedrose"="Kata Gilded Rose"
+LABEL version="1.0"
+LABEL description="Kata Gilded Rose en Java"
+LABEL maintainer="davig@cifpfbmoll.eu"
+
+WORKDIR $HOME/app
+
+COPY ./target/gildedrose-1.0-SNAPSHOT.jar ./app/gildedrose.jar
+
+CMD ["java", "-jar", "./app/gildedrose.jar"]
+```
+
+### Crear la imagen:
+
+```bash
+$ docker build -t gildedrose .
+
+$ docker images 
+
+REPOSITORY       TAG                    IMAGE ID       CREATED         SIZE
+gildedrose       latest                 97ba7872c8f5   4 minutes ago   220MB
+openjdk          11.0-jre-slim-buster   4f4564121f23   3 days ago      220MB
+```
+
+### Crear un contenedor y ejecutarlo a partir de la imagen:
+
+```bash
+$ docker run -it --name katagildedrose gildedrose:latest
+
+Bienvenido a Ollivanders!
+         ####  DAY 1 ####
+name=+5 Dexterity Vest, sell_in=10, quality=20
+name=Aged Brie, sell_in=2, quality=0
+name=Elixir of the Mongoose, sell_in=5, quality=7
+name=Sulfuras, Hand of Ragnaros, sell_in=0, quality=80
+name=Sulfuras, Hand of Ragnaros, sell_in=-1, quality=80
+name=Backstage passes to a TAFKAL80ETC concert, sell_in=15, quality=20
+...
+
+$ docker ps -a
+
+CONTAINER ID   IMAGE                COMMAND        CREATED         STATUS       PORTS     NAMES
+88aa8adfa8ec   gildedrose:latest   "java -jar ./app/gil…"   10 minutes ago   Exited (0) 10 minutes ago   katagildedrose
+```
+
+No necesito de momento el -dockerignore porque no estoy copiando código fuente, sólo los `jar`
+
+### AS - stages
+
+Mejor usar la imagen maven oficial porque al instalar por mi cuenta maven en la imagen da problemas: 
+
+https://hub.docker.com/_/maven
+
+Leer el dockerfile
+
+Se generan la imagen maven, la openjdk, y una <none> que me cargo luego, más la final con jre+la app
+
+Esta manera me permite construir la app con maven en una imagen maven (a la que he copiado el código fuente) y copiar sólo el jar a otra imagen, de modo que si publico la imagen no se puede acceder al fuente. Además, la imagen con maven pesa 400MB mientras que la jre sólo 200MB.
+
+```Dockerfile
+# Imagen base
+## BUILD STAGE => maven build ##
+FROM maven:3.6.3-openjdk-11-slim AS build
+
+# copia en la ruta indicada 
+# (si es relativa desde el workdir)
+COPY . /usr/src/app
+
+# desde el workdir si se indica ruta relativa
+RUN mvn -f /usr/src/app/pom.xml clean package
+
+
+## PACKAGE STAGE => Imagen runable con el jar de la app ##
+
+FROM openjdk:11.0-jre-slim-buster
+
+LABEL "edu.elsmancs.gildedrose"="Kata Gilded Rose" \
+        version="1.0" \
+        description="Kata Gilded Rose en Java" \ 
+        maintainer="davig@cifpfbmoll.eu"
+
+WORKDIR $HOME/app 
+
+# copiar el jar desde el stage build al workdir del docker
+COPY --from=build /usr/src/app/target/*.jar ./gildedrose.jar
+
+# ejecutar este comando al ejecutar el docker
+ENTRYPOINT ["java", "-jar", "gildedrose.jar"]
+```
+
+-----------------
+
+Arrancar mi docker **sobreescribiendo el entrypoint** y así poder ejecutarlo en modo interactivo
+
+```bash
+$ docker run --rm -it --entrypoint=/bin/bash mavenrose:latest 
+
+root@0d8424b096f8:/app# ls
+gildedrose.jar
+
+root@0d8424b096f8:/app# java -jar gildedrose.jar
+
+root@0d8424b096f8:/app# exit
+```
+-----------------
+
+Ejecutar el contenedor tal cual:
+
+```bash
+$ docker start -i gildedrose 
+
+$ docker container run -it --rm mavenrose:latest 
+```
+
+-----------------
+
+
+Ver el **historial de capas** de la imagen:
+
+```bash
+$ docker image history mavenrose:latest
+
+age history mavenrose:latest
+IMAGE          CREATED        CREATED BY                                      SIZE      COMMENT
+66b0ba2acab1   3 months ago   /bin/sh -c #(nop)  ENTRYPOINT ["java" "-jar"…   0B        
+8ffc2b695386   3 months ago   /bin/sh -c #(nop) COPY file:0c8b69203defcdcb…   9.6kB     
+7b9f1245a45f   3 months ago   /bin/sh -c #(nop) WORKDIR /app                  0B        
+b9b7d6f69027   3 months ago   /bin/sh -c #(nop)  LABEL edu.elsmancs.gilded…   0B        
+4f4564121f23   3 months ago   /bin/sh -c set -eux;   arch="$(dpkg --print-…   142MB     
+<missing>      3 months ago   /bin/sh -c #(nop)  ENV JAVA_VERSION=11.0.10     0B        
+<missing>      3 months ago   /bin/sh -c #(nop)  ENV LANG=C.UTF-8             0B        
+<missing>      3 months ago   /bin/sh -c #(nop)  ENV PATH=/usr/local/openj…   0B        
+<missing>      3 months ago   /bin/sh -c { echo '#/bin/sh'; echo 'echo "$J…   27B       
+<missing>      3 months ago   /bin/sh -c #(nop)  ENV JAVA_HOME=/usr/local/…   0B        
+<missing>      4 months ago   /bin/sh -c set -eux;  apt-get update;  apt-g…   8.78MB    
+<missing>      4 months ago   /bin/sh -c #(nop)  CMD ["bash"]                 0B        
+<missing>      4 months ago   /bin/sh -c #(nop) ADD file:422aca8901ae3d869…   69.2MB    
+```
+
+La capa superior es la última. A medida que descedemos las capas son más antiguas. La capa superior es la que generalmente usamos para ejecutar los contendores. 
+
+-----------------
+
+Para ver los **metadata** de la imagen que hemos creado con `LABEL (key=value)`: 
+
+```bash
+$ docker image inspect mavenrose:latest 
+...
+ "Labels": {
+                "description": "Kata Gilded Rose en Java",
+                "edu.elsmancs.gildedrose": "Kata Gilded Rose",
+                "maintainer": "davig@cifpfbmoll.eu",
+                "version": "1.0"
+            }
+```
+
+-----------------
+
+Publicar la imagen en dockerhub
+
+```bash
+~$ docker tag mavenrose:latest dfleta/gildedrose
+
+~$ docker login -u <user>
+```
+
+-----------
+
+Comandos útiles
+
+```bash
+$ docker container rm id_contenedor
+
+$ docker images
+
+$ docker image rm id_iamgen
+
+$ docker start contenedor
+$ docker stop contenedor
+
+$ docker ps -a
+```
+
+### Docker handbook de freecodecamp
+
+https://www.freecodecamp.org/news/the-docker-handbook/

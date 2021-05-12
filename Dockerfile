@@ -10,13 +10,13 @@ COPY . /usr/src/app
 RUN mvn -f /usr/src/app/pom.xml clean package
 
 
-## PACKAGE STAGE => Imagen runable con el jar de la pp ##
+## PACKAGE STAGE => Imagen runable con el jar de la app ##
 
 FROM openjdk:11.0-jre-slim-buster
 
 LABEL "edu.elsmancs.gildedrose"="Kata Gilded Rose" \
         version="1.0" \
-        description="Kata Gilded Rose en Java" \
+        description="Kata Gilded Rose en Java" \ 
         maintainer="davig@cifpfbmoll.eu"
 
 WORKDIR $HOME/app 
