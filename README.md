@@ -79,10 +79,17 @@ Básicamente, es el mismo diseño que entre todas las personas de clase hemos di
 ![Proto UML](./diseño%20colaborativo%20protoUML.jpg)
 
 
-JAVA en un docker
-=================
+JAVA en un docker - multistage
+==============================
 
-### Alpine Linux with OpenJDK JRE
+Imágenes:
+
+https://github.com/docker-library/docs/tree/master/openjdk
+
+https://hub.docker.com/_/openjdk
+
+
+## Single stage - OpenJDK JRE
 Crear la imagen con el JDK y el JRE para crear los `jar` de la app:
 
 `Dockerfile`
@@ -102,7 +109,7 @@ COPY ./target/gildedrose-1.0-SNAPSHOT.jar ./app/gildedrose.jar
 CMD ["java", "-jar", "./app/gildedrose.jar"]
 ```
 
-### Crear la imagen:
+### Crear la imagen
 
 ```bash
 $ docker build -t gildedrose .
@@ -137,7 +144,7 @@ CONTAINER ID   IMAGE                COMMAND        CREATED         STATUS       
 
 No necesito de momento el -dockerignore porque no estoy copiando código fuente, sólo los `jar`
 
-### AS - stages
+## multi-stage
 
 Mejor usar la imagen maven oficial porque al instalar por mi cuenta maven en la imagen da problemas: 
 
@@ -248,7 +255,7 @@ $ docker image inspect mavenrose:latest
 
 -----------------
 
-Publicar la imagen en dockerhub
+**Publicar la imagen** en dockerhub
 
 ```bash
 ~$ docker tag mavenrose:latest dfleta/gildedrose
@@ -265,7 +272,7 @@ $ docker container rm id_contenedor
 
 $ docker images
 
-$ docker image rm id_iamgen
+$ docker image rm id_imagen
 
 $ docker start contenedor
 $ docker stop contenedor
